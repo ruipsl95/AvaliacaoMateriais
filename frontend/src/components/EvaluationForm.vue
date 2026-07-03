@@ -1,0 +1,767 @@
+<template>
+  <div class="evaluation-container">
+    <header class="page-header">
+      <h1>Painel do Avaliador</h1>
+      <div class="user-info">
+        <span class="welcome-text">Bem-vindo(a), {{ user.name || 'Delegado' }}</span>
+        <button @click="logout" class="btn-sm btn-danger">Terminar Sessão</button>
+      </div>
+    </header>
+
+    <div class="tabs">
+      <button :class="{ active: tab === 'new' }" @click="tab = 'new'">Nova Avaliação</button>
+      <button :class="{ active: tab === 'history' }" @click="tab = 'history'; fetchMyEvaluations()">Minhas Avaliações</button>
+    </div>
+
+    <div class="glass-panel" v-if="tab === 'new'">
+      <header class="form-header">
+        <h1>Avaliação de Materiais Pedagógicos</h1>
+        <p>Preencha os critérios de avaliação e gere o relatório oficial (Modelo 260DP.01).</p>
+      </header>
+
+      <form @submit.prevent="submitEvaluation" class="evaluation-form">
+        
+        <!-- SECÇÃO 1: METADADOS -->
+        <section class="form-section">
+          <h2>1. Identificação</h2>
+          <div class="form-grid">
+            <div class="input-group">
+              <label>Ano Letivo</label>
+              <input type="text" v-model="form.schoolYear" placeholder="Ex: 2025/2026" required />
+            </div>
+
+            <div class="input-group">
+              <label>Disciplina</label>
+              <select v-model="form.subjectId" required>
+                <option value="" disabled>Selecione a disciplina...</option>
+                <option v-for="subject in allSubjects" :key="subject.id" :value="subject.id">
+                  {{ subject.name }}{{ subject.year ? ` (${subject.year}º Ano)` : '' }}
+                </option>
+              </select>
+            </div>
+
+            <div class="input-group">
+              <label>Curso</label>
+              <input type="text" :value="selectedCourseName" disabled placeholder="Preenchido automaticamente" />
+            </div>
+
+            <div class="input-group">
+              <label>Professor Avaliado</label>
+              <select v-model="form.teacherId" :disabled="!form.subjectId" required>
+                <option value="" disabled>Selecione o professor...</option>
+                <option v-for="teacher in subjectTeachers" :key="teacher.id" :value="teacher.id">
+                  {{ teacher.name }}
+                </option>
+              </select>
+            </div>
+
+            <div class="input-group">
+              <label>Módulo(s) / UFCD</label>
+              <input type="text" v-model="form.modules" placeholder="Ex: 1, 2 e 3" required />
+            </div>
+          </div>
+        </section>
+
+        <!-- SECÇÃO 2: CRITÉRIOS -->
+        <section class="form-section">
+          <h2>2. Critérios de Avaliação</h2>
+          <p class="legend">1 – Muito fraco | 2 – Fraco | 3 – Suficiente | 4 – Bom | 5 - Excelente</p>
+          
+          <div class="criteria-list">
+            <div class="criterion">
+              <label>A) Adequação aos programas</label>
+              <div class="rating-group">
+                <label v-for="n in 5" :key="`A-${n}`" class="rating-label">
+                  <input type="radio" v-model="form.scoreAdequacy" :value="n" required />
+                  <span>{{ n }}</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="criterion">
+              <label>B) Qualidade científica dos textos, resumos, esquemas, questionários...</label>
+              <div class="rating-group">
+                <label v-for="n in 5" :key="`B-${n}`" class="rating-label">
+                  <input type="radio" v-model="form.scoreScientific" :value="n" required />
+                  <span>{{ n }}</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="criterion">
+              <label>C) Quantidade dos textos, resumos, esquemas, questionários...</label>
+              <div class="rating-group">
+                <label v-for="n in 5" :key="`C-${n}`" class="rating-label">
+                  <input type="radio" v-model="form.scoreQuantity" :value="n" required />
+                  <span>{{ n }}</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="criterion">
+              <label>D) Bibliografia identificada</label>
+              <div class="rating-group">
+                <label v-for="n in 5" :key="`D-${n}`" class="rating-label">
+                  <input type="radio" v-model="form.scoreBibliography" :value="n" required />
+                  <span>{{ n }}</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECÇÃO 3: JUSTIFICAÇÃO (CONDICIONAL) -->
+        <transition name="fade">
+          <section class="form-section warning-section" v-if="requiresJustification">
+            <h2>Justificação Obrigatória</h2>
+            <p>Atribuiu uma classificação igual ou inferior a 3. Por favor, justifique.</p>
+            <div class="input-group">
+              <textarea 
+                v-model="form.justification" 
+                rows="4" 
+                placeholder="Insira a sua justificação aqui..."
+                :required="requiresJustification"
+              ></textarea>
+            </div>
+          </section>
+        </transition>
+
+        <!-- SECÇÃO 4: DIREITOS DE AUTOR & OBSERVAÇÕES -->
+        <section class="form-section">
+          <h2>3. Informações Adicionais</h2>
+          
+          <div class="input-group copyright-group">
+            <label>E) Os textos reproduzidos de publicações com direitos de autor excedem os 10% de cada uma das publicações?</label>
+            <div class="radio-options">
+              <label><input type="radio" v-model="form.copyrightStatus" value="SIM" required /> SIM</label>
+              <label><input type="radio" v-model="form.copyrightStatus" value="NAO" required /> NÃO</label>
+              <label><input type="radio" v-model="form.copyrightStatus" value="DUVIDAS" required /> DÚVIDAS</label>
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label>Observações (Opcional)</label>
+            <textarea v-model="form.observations" rows="3" placeholder="Notas adicionais..."></textarea>
+          </div>
+        </section>
+
+        <!-- SUBMIT -->
+        <div class="form-actions">
+          <button type="submit" class="btn-submit" :disabled="isSubmitting">
+            <span v-if="!isSubmitting">Submeter e Gerar PDF</span>
+            <span v-else class="loader"></span>
+          </button>
+        </div>
+
+      </form>
+    </div>
+
+    <!-- TAB: MINHAS AVALIAÇÕES -->
+    <div class="glass-panel" v-if="tab === 'history'">
+      <h2>Histórico de Submissões</h2>
+      <div class="table-container">
+        <table v-if="myEvaluations.length > 0">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Disciplina</th>
+              <th>Professor Avaliado</th>
+              <th>Ação</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="evalItem in myEvaluations" :key="evalItem.id">
+              <td>{{ new Date(evalItem.createdAt).toLocaleDateString('pt-PT') }}</td>
+              <td>{{ evalItem.subject.name }} {{ evalItem.subject.year ? `(${evalItem.subject.year}º Ano)` : '' }}</td>
+              <td>{{ evalItem.teacher.name }}</td>
+              <td>
+                <button @click="downloadPdf(evalItem.id)" class="btn-sm">Gerar PDF</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-else>Ainda não submeteu nenhuma avaliação.</p>
+      </div>
+    </div>
+
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted, watch } from 'vue';
+import { useRouter } from 'vue-router';
+
+const router = useRouter();
+const tab = ref('new');
+const myEvaluations = ref([]);
+
+// Estado do Formulário
+const form = ref({
+  schoolYear: '2025/2026',
+  courseId: '',
+  subjectId: '',
+  teacherId: '',
+  modules: '',
+  scoreAdequacy: null,
+  scoreScientific: null,
+  scoreQuantity: null,
+  scoreBibliography: null,
+  justification: '',
+  copyrightStatus: '',
+  observations: ''
+});
+
+const isSubmitting = ref(false);
+const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+const courses = ref([]);
+const allSubjects = ref([]);
+const teachers = ref([]);
+
+// Computed Property para Regra de Negócio Dinâmica
+const requiresJustification = computed(() => {
+  return (
+    (form.value.scoreAdequacy && form.value.scoreAdequacy <= 3) ||
+    (form.value.scoreScientific && form.value.scoreScientific <= 3) ||
+    (form.value.scoreQuantity && form.value.scoreQuantity <= 3) ||
+    (form.value.scoreBibliography && form.value.scoreBibliography <= 3)
+  );
+});
+
+const selectedCourseName = computed(() => {
+  if (!form.value.subjectId) return '';
+  const subj = allSubjects.value.find(s => s.id === form.value.subjectId);
+  return subj && subj.course ? subj.course.name : '';
+});
+
+const subjectTeachers = computed(() => {
+  if (!form.value.subjectId) return [];
+  const subj = allSubjects.value.find(s => s.id === form.value.subjectId);
+  return subj && subj.teachers ? subj.teachers : [];
+});
+
+watch(() => form.value.subjectId, (newSubjectId) => {
+  if (newSubjectId) {
+    const subj = allSubjects.value.find(s => s.id === newSubjectId);
+    if (subj) {
+      form.value.courseId = subj.courseId;
+      // Auto-select se só houver 1 professor, caso contrário limpa para obrigar a escolher
+      if (subj.teachers && subj.teachers.length === 1) {
+        form.value.teacherId = subj.teachers[0].id;
+      } else {
+        form.value.teacherId = '';
+      }
+    }
+  } else {
+    form.value.courseId = '';
+    form.value.teacherId = '';
+  }
+});
+
+onMounted(async () => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch('/api/evaluations/my-data', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await response.json();
+    courses.value = data.courses;
+    allSubjects.value = data.subjects;
+  } catch (error) {
+    console.error('Erro ao carregar dados:', error);
+  }
+});
+
+const submitEvaluation = async () => {
+  if (requiresJustification.value && !form.value.justification.trim()) {
+    alert('A justificação é obrigatória!');
+    return;
+  }
+
+  isSubmitting.value = true;
+  
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch('/api/evaluations', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(form.value)
+    });
+
+    if (!response.ok) throw new Error('Erro ao submeter avaliação');
+    
+    const result = await response.json();
+    downloadPdf(result.id);
+    alert('Avaliação submetida com sucesso!');
+    
+  } catch (error) {
+    console.error(error);
+    alert('Ocorreu um erro ao submeter a avaliação.');
+  } finally {
+    isSubmitting.value = false;
+  }
+};
+
+const fetchMyEvaluations = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch('/api/evaluations/my-evaluations', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (response.ok) {
+      myEvaluations.value = await response.json();
+    }
+  } catch (error) {
+    console.error('Erro ao obter histórico:', error);
+  }
+};
+
+const downloadPdf = (id) => {
+  const token = localStorage.getItem('token');
+  fetch(`/api/evaluations/${id}/pdf`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  })
+  .then(res => res.blob())
+  .then(blob => {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `avaliacao-${id}.pdf`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  })
+  .catch(err => alert('Erro ao gerar PDF'));
+};
+
+const logout = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  router.push('/login');
+};
+</script>
+
+<style scoped>
+/* ==========================================================================
+   Design System & Tokens (Vanilla CSS)
+   ========================================================================== */
+:root {
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --danger: #ef4444;
+  --danger-light: #fef2f2;
+  --bg-color: #f8fafc;
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.4);
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  --radius-lg: 16px;
+  --radius-sm: 8px;
+  --shadow-sm: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.evaluation-container {
+  min-height: 100vh;
+  padding: 2rem;
+  background: linear-gradient(135deg, #e0e7ff 0%, #f3e8ff 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--text-main);
+}
+
+.page-header {
+  width: 100%;
+  max-width: 800px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.page-header h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.welcome-text {
+  font-weight: 500;
+}
+
+.tabs {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  width: 100%;
+  max-width: 800px;
+  flex-wrap: wrap;
+}
+
+.tabs button {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: var(--transition);
+}
+
+.tabs button.active {
+  background: var(--primary);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-sm {
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  transition: var(--transition);
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: white;
+}
+.btn-danger:hover {
+  background: var(--danger-light);
+  color: var(--danger);
+  border: 1px solid var(--danger);
+}
+
+.glass-panel {
+  width: 100%;
+  max-width: 800px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 2.5rem;
+  animation: slideUp 0.6s ease-out forwards;
+}
+
+.form-header {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.form-header h1 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 0.5rem;
+}
+
+.form-header p {
+  color: var(--text-muted);
+}
+
+.form-section {
+  background: white;
+  padding: 1.5rem;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 2rem;
+  transition: var(--transition);
+}
+
+.form-section:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+}
+
+.form-section h2 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #f1f5f9;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.2rem;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.input-group label {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+input[type="text"],
+select,
+textarea {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #cbd5e1;
+  border-radius: var(--radius-sm);
+  background: #f8fafc;
+  font-size: 0.95rem;
+  transition: var(--transition);
+  color: var(--text-main);
+  outline: none;
+}
+
+input[type="text"]:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--primary);
+  background: white;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Rating Styles */
+.legend {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: center;
+  margin-bottom: 1.5rem;
+  font-weight: 500;
+}
+
+.criterion {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-radius: var(--radius-sm);
+  background: #f8fafc;
+  margin-bottom: 0.8rem;
+  transition: var(--transition);
+}
+
+.criterion:hover {
+  background: #f1f5f9;
+}
+
+.rating-group {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.rating-label {
+  position: relative;
+  cursor: pointer;
+}
+
+.rating-label input {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.rating-label span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid #e2e8f0;
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: var(--transition);
+}
+
+.rating-label input:checked ~ span {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+  transform: scale(1.1);
+  box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);
+}
+
+.rating-label:hover span {
+  border-color: var(--primary);
+}
+
+/* Radio Options */
+.radio-options {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 0.5rem;
+}
+
+.radio-options label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+/* Warning Section */
+.warning-section {
+  background: var(--danger-light);
+  border: 1px solid #fecaca;
+}
+
+.warning-section h2 {
+  color: var(--danger);
+  border-bottom-color: #fecaca;
+}
+
+/* Transitions */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+/* Button */
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.btn-submit {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition);
+  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 250px;
+}
+
+.btn-submit:hover:not(:disabled) {
+  background: var(--primary-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.4);
+}
+
+.btn-submit:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Loader */
+.loader {
+  border: 3px solid rgba(255,255,255,0.3);
+  border-radius: 50%;
+  border-top: 3px solid white;
+  width: 24px;
+  height: 24px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes slideUp {
+  0% { opacity: 0; transform: translateY(30px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsivo */
+@media (max-width: 768px) {
+  .evaluation-container {
+    padding: 1rem;
+  }
+
+  .page-header {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+
+  .user-info {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .tabs button {
+    flex: 1;
+    text-align: center;
+    padding: 0.75rem 0.5rem;
+  }
+
+  .criterion {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .rating-label span {
+    width: 32px;
+    height: 32px;
+    font-size: 0.9rem;
+  }
+
+  .radio-options {
+    flex-direction: column;
+    gap: 0.8rem;
+  }
+
+  .glass-panel {
+    padding: 1.5rem;
+  }
+  
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .table-container {
+    overflow-x: auto;
+  }
+  
+  table {
+    width: 100%;
+    min-width: 500px;
+  }
+}
+</style>

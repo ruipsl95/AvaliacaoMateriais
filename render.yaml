@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: avaliacao-materiais
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: cd backend && npx prisma db push --accept-data-loss && node src/server.js
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: avaliacao-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+
+databases:
+  - name: avaliacao-db
+    databaseName: avaliacao_materiais
+    user: avaliacao_admin
