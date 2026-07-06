@@ -158,29 +158,98 @@
 
     <!-- TAB: MINHAS AVALIAÇÕES -->
     <div class="glass-panel" v-if="tab === 'history'">
-      <h2>Histórico de Submissões</h2>
+      <header class="form-header" style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <h1>Minhas Avaliações</h1>
+          <p>Consulte, edite ou exporte o histórico das suas submissões.</p>
+        </div>
+        <button @click="exportZip" class="btn-sm btn-primary">📦 Exportar Todas (ZIP)</button>
+      </header>
+
       <div class="table-container">
         <table v-if="myEvaluations.length > 0">
           <thead>
             <tr>
               <th>Data</th>
               <th>Disciplina</th>
-              <th>Professor Avaliado</th>
-              <th>Ação</th>
+              <th>Turma</th>
+              <th>Professor(a)</th>
+              <th>Relatório</th>
+              <th>Ações</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="evalItem in myEvaluations" :key="evalItem.id">
-              <td>{{ new Date(evalItem.createdAt).toLocaleDateString('pt-PT') }}</td>
-              <td>{{ evalItem.subject.name }} {{ evalItem.subject.year ? `(${evalItem.subject.year}º Ano)` : '' }}</td>
-              <td>{{ evalItem.teacher.name }}</td>
+            <tr v-for="ev in myEvaluations" :key="ev.id">
+              <td>{{ new Date(ev.createdAt).toLocaleDateString('pt-PT') }}</td>
+              <td>{{ ev.subject?.name }}</td>
+              <td>{{ ev.subject?.course?.name }}</td>
+              <td>{{ ev.teacher?.name }}</td>
               <td>
-                <button @click="downloadPdf(evalItem.id)" class="btn-sm">Gerar PDF</button>
+                <button @click="downloadPdf(ev.id)" class="btn-sm">Gerar PDF</button>
+              </td>
+              <td>
+                <button @click="openEditModal(ev)" class="btn-icon">✏️</button>
+                <button @click="deleteEvaluation(ev.id, ev.subjectId)" class="btn-icon text-red">🗑️</button>
               </td>
             </tr>
           </tbody>
         </table>
-        <p v-else>Ainda não submeteu nenhuma avaliação.</p>
+        <p v-else class="empty-state">Ainda não realizou nenhuma avaliação.</p>
+      </div>
+    </div>
+
+    <!-- MODAL DE EDIÇÃO DE AVALIAÇÃO -->
+    <div v-if="editingEvaluation" class="modal-overlay">
+      <div class="modal-content evaluation-modal">
+        <h3>Editar Avaliação</h3>
+        <p><strong>Disciplina:</strong> {{ editingEvaluation.subject?.name }}</p>
+        <p><strong>Professor:</strong> {{ editingEvaluation.teacher?.name }}</p>
+        <hr/>
+        <form @submit.prevent="submitEditEvaluation">
+          
+          <div class="modal-grid">
+            <div class="input-group">
+              <label>A) Adequação aos programas (1-5)</label>
+              <input type="number" min="1" max="5" v-model="editForm.scoreAdequacy" required />
+            </div>
+            <div class="input-group">
+              <label>B) Qualidade científica (1-5)</label>
+              <input type="number" min="1" max="5" v-model="editForm.scoreScientific" required />
+            </div>
+            <div class="input-group">
+              <label>C) Quantidade de textos (1-5)</label>
+              <input type="number" min="1" max="5" v-model="editForm.scoreQuantity" required />
+            </div>
+            <div class="input-group">
+              <label>D) Bibliografia (1-5)</label>
+              <input type="number" min="1" max="5" v-model="editForm.scoreBibliography" required />
+            </div>
+          </div>
+
+          <div class="input-group" v-if="requiresEditJustification">
+            <label>Justificação Obrigatória (Notas <= 3)</label>
+            <textarea v-model="editForm.justification" rows="3" required></textarea>
+          </div>
+
+          <div class="input-group">
+            <label>E) Direitos de autor excedem 10%?</label>
+            <select v-model="editForm.copyrightStatus" required>
+              <option value="SIM">SIM</option>
+              <option value="NAO">NÃO</option>
+              <option value="DUVIDAS">DÚVIDAS</option>
+            </select>
+          </div>
+
+          <div class="input-group">
+            <label>Observações</label>
+            <textarea v-model="editForm.observations" rows="2"></textarea>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" @click="editingEvaluation = null" class="btn-cancel">Cancelar</button>
+            <button type="submit" class="btn-submit-modal" :disabled="isSubmittingEdit">Salvar e Atualizar PDF</button>
+          </div>
+        </form>
       </div>
     </div>
 
@@ -236,6 +305,19 @@ const getCourseAbbr = (courseName) => courseName ? (courseAbbrs[courseName] || c
 
 const availableSubjects = computed(() => {
   return allSubjects.value.filter(s => !evaluatedSubjectIds.value.includes(s.id));
+});
+
+const editingEvaluation = ref(null);
+const editForm = ref({});
+const isSubmittingEdit = ref(false);
+
+const requiresEditJustification = computed(() => {
+  return (
+    editForm.value.scoreAdequacy <= 3 ||
+    editForm.value.scoreScientific <= 3 ||
+    editForm.value.scoreQuantity <= 3 ||
+    editForm.value.scoreBibliography <= 3
+  );
 });
 
 // Computed Property para Regra de Negócio Dinâmica
@@ -354,21 +436,71 @@ const fetchMyEvaluations = async () => {
   }
 };
 
+const deleteEvaluation = async (id, subjectId) => {
+  if (!confirm('Tem a certeza que deseja apagar esta avaliação? Esta ação é irreversível.')) return;
+  try {
+    const token = localStorage.getItem('token');
+    const res = await fetch(`/api/evaluations/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error('Erro ao apagar');
+    
+    // Remover da lista de history
+    myEvaluations.value = myEvaluations.value.filter(ev => ev.id !== id);
+    // Adicionar disciplina de volta à combobox
+    evaluatedSubjectIds.value = evaluatedSubjectIds.value.filter(sId => sId !== subjectId);
+    
+  } catch(error) {
+    alert(error.message);
+  }
+};
+
+const openEditModal = (ev) => {
+  editingEvaluation.value = ev;
+  editForm.value = {
+    scoreAdequacy: ev.scoreAdequacy,
+    scoreScientific: ev.scoreScientific,
+    scoreQuantity: ev.scoreQuantity,
+    scoreBibliography: ev.scoreBibliography,
+    justification: ev.justification,
+    copyrightStatus: ev.copyrightStatus,
+    observations: ev.observations
+  };
+};
+
+const submitEditEvaluation = async () => {
+  if (requiresEditJustification.value && !editForm.value.justification?.trim()) {
+    alert('A justificação é obrigatória!');
+    return;
+  }
+  isSubmittingEdit.value = true;
+  try {
+    const token = localStorage.getItem('token');
+    const res = await fetch(`/api/evaluations/${editingEvaluation.value.id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(editForm.value)
+    });
+    if (!res.ok) throw new Error('Erro ao editar');
+    editingEvaluation.value = null;
+    await fetchMyEvaluations();
+  } catch (err) {
+    alert(err.message);
+  } finally {
+    isSubmittingEdit.value = false;
+  }
+};
+
+const exportZip = () => {
+  window.open(`/api/evaluations/export/zip?token=${localStorage.getItem('token')}`, '_blank');
+};
+
 const downloadPdf = (id) => {
-  const token = localStorage.getItem('token');
-  fetch(`/api/evaluations/${id}/pdf`, {
-    headers: { 'Authorization': `Bearer ${token}` }
-  })
-  .then(res => res.blob())
-  .then(blob => {
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `avaliacao-${id}.pdf`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-  })
-  .catch(err => alert('Erro ao gerar PDF'));
+  window.open(`/api/evaluations/${id}/pdf?token=${localStorage.getItem('token')}`, '_blank');
 };
 
 const logout = () => {
@@ -695,16 +827,16 @@ select:disabled {
 }
 
 .btn-submit {
-  background: var(--primary);
-  color: white;
+  background: #1e293b;
+  color: #ffffff;
   border: none;
   padding: 1rem 2rem;
   font-size: 1.1rem;
-  font-weight: 600;
+  font-weight: 700;
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: var(--transition);
-  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -712,9 +844,9 @@ select:disabled {
 }
 
 .btn-submit:hover:not(:disabled) {
-  background: var(--primary-hover);
+  background: #0f172a;
   transform: translateY(-2px);
-  box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
 }
 
 .btn-submit:disabled {
@@ -798,5 +930,87 @@ select:disabled {
     width: 100%;
     min-width: 500px;
   }
+}
+
+.btn-icon { background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 0.2rem; transition: transform 0.2s; }
+.btn-icon:hover { transform: scale(1.1); }
+.text-red { color: #ef4444; }
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+.modal-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  width: 500px;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+}
+.evaluation-modal .modal-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+.modal-content h3 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  color: #1e293b;
+}
+.modal-content label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: #475569;
+  font-size: 0.9rem;
+}
+.modal-content input, .modal-content select, .modal-content textarea {
+  width: 100%;
+  padding: 0.6rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.btn-cancel {
+  background: #e2e8f0;
+  color: #475569;
+  border: none;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.btn-submit-modal {
+  background: #1e293b;
+  color: white;
+  border: none;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.btn-submit-modal:hover {
+  background: #0f172a;
+}
+.btn-submit-modal:disabled {
+  opacity: 0.7;
 }
 </style>
