@@ -495,12 +495,48 @@ const submitEditEvaluation = async () => {
   }
 };
 
-const exportZip = () => {
-  window.open(`/api/evaluations/export/zip?token=${localStorage.getItem('token')}`, '_blank');
+const exportZip = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    const res = await fetch('/api/evaluations/export/zip', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error('Erro ao exportar ZIP');
+    
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'minhas_avaliacoes.zip';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    alert(error.message);
+  }
 };
 
-const downloadPdf = (id) => {
-  window.open(`/api/evaluations/${id}/pdf?token=${localStorage.getItem('token')}`, '_blank');
+const downloadPdf = async (id) => {
+  try {
+    const token = localStorage.getItem('token');
+    const res = await fetch(`/api/evaluations/${id}/pdf`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error('Erro ao gerar PDF');
+    
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `avaliacao-${id}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    alert(error.message);
+  }
 };
 
 const logout = () => {
