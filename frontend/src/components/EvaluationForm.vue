@@ -158,43 +158,45 @@
 
     <!-- TAB: MINHAS AVALIAÇÕES -->
     <div class="glass-panel" v-if="tab === 'history'">
-      <header class="form-header" style="display:flex; justify-content:space-between; align-items:center;">
-        <div>
+      <header class="form-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap: wrap; gap: 1rem;">
+        <div style="text-align: left;">
           <h1>Minhas Avaliações</h1>
           <p>Consulte, edite ou exporte o histórico das suas submissões.</p>
         </div>
-        <button @click="exportZip" class="btn-sm btn-primary">📦 Exportar Todas (ZIP)</button>
+        <button @click="exportZip" class="btn-sm btn-primary export-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.5rem;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Exportar Todas (ZIP)
+        </button>
       </header>
 
-      <div class="table-container">
-        <table v-if="myEvaluations.length > 0">
-          <thead>
-            <tr>
-              <th>Data</th>
-              <th>Disciplina</th>
-              <th>Turma</th>
-              <th>Professor(a)</th>
-              <th>Relatório</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="ev in myEvaluations" :key="ev.id">
-              <td>{{ new Date(ev.createdAt).toLocaleDateString('pt-PT') }}</td>
-              <td>{{ ev.subject?.name }}</td>
-              <td>{{ ev.subject?.course?.name }}</td>
-              <td>{{ ev.teacher?.name }}</td>
-              <td>
-                <button @click="downloadPdf(ev.id)" class="btn-sm">Gerar PDF</button>
-              </td>
-              <td>
-                <button @click="openEditModal(ev)" class="btn-icon">✏️</button>
-                <button @click="deleteEvaluation(ev.id, ev.subjectId)" class="btn-icon text-red">🗑️</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <p v-else class="empty-state">Ainda não realizou nenhuma avaliação.</p>
+      <div class="evaluations-grid" v-if="myEvaluations.length > 0">
+        <div class="eval-card" v-for="ev in myEvaluations" :key="ev.id">
+          <div class="eval-card-header">
+            <span class="eval-date">{{ new Date(ev.createdAt).toLocaleDateString('pt-PT') }}</span>
+            <span class="badge" v-if="ev.subject?.course?.name">{{ ev.subject?.course?.name }}</span>
+          </div>
+          
+          <div class="eval-card-body">
+            <h3 class="subject-title">{{ ev.subject?.name }}</h3>
+            <p class="teacher-name">
+              <span class="icon">👨‍🏫</span> {{ ev.teacher?.name }}
+            </p>
+          </div>
+          
+          <div class="eval-card-footer">
+            <button @click="downloadPdf(ev.id)" class="btn-action pdf-btn">
+              📄 Gerar PDF
+            </button>
+            <div class="action-icons">
+              <button @click="openEditModal(ev)" class="btn-icon" title="Editar Avaliação">✏️</button>
+              <button @click="deleteEvaluation(ev.id, ev.subjectId)" class="btn-icon text-red" title="Apagar Avaliação">🗑️</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div v-else class="empty-state">
+        <div class="empty-icon">📁</div>
+        <p>Ainda não realizou nenhuma avaliação.</p>
       </div>
     </div>
 
@@ -968,58 +970,140 @@ select:disabled {
   }
 }
 
-/* Table Styles */
-.table-container {
-  width: 100%;
-  overflow-x: auto;
-  border-radius: var(--radius-sm);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-  background: rgba(255, 255, 255, 0.5);
-  margin-top: 1rem;
+/* Evaluations Grid Layout */
+.evaluations-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
 }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
+.eval-card {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 16px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  backdrop-filter: blur(10px);
 }
 
-th, td {
-  padding: 1rem 1.5rem;
+.eval-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  background: rgba(255, 255, 255, 0.9);
+  border-color: var(--primary);
 }
 
-th {
+.eval-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.eval-date {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.badge {
+  background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+  color: #3730a3;
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.eval-card-body {
+  flex: 1;
+  margin-bottom: 1.5rem;
+}
+
+.subject-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0 0 0.5rem 0;
+  line-height: 1.3;
+}
+
+.teacher-name {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.eval-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.btn-action {
   background: var(--primary);
   color: white;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
   font-weight: 600;
-  text-transform: uppercase;
-  font-size: 0.85rem;
-  letter-spacing: 0.05em;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
 }
 
-th:first-child { border-top-left-radius: var(--radius-sm); }
-th:last-child { border-top-right-radius: var(--radius-sm); }
-
-tr {
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-  transition: var(--transition);
+.btn-action:hover {
+  background: var(--primary-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
-tr:hover {
-  background: rgba(255, 255, 255, 0.8);
-}
-
-td {
-  font-size: 0.95rem;
-  color: var(--text-main);
+.action-icons {
+  display: flex;
+  gap: 0.5rem;
 }
 
 .empty-state {
   text-align: center;
-  padding: 3rem;
-  color: var(--text-muted);
-  font-size: 1.1rem;
-  font-weight: 500;
+  padding: 4rem 2rem;
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 16px;
+  border: 2px dashed rgba(0, 0, 0, 0.1);
+  margin-top: 1.5rem;
+}
+
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.export-btn {
+  display: inline-flex;
+  align-items: center;
+  background: #1e293b;
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+}
+.export-btn:hover {
+  background: #0f172a;
+  transform: translateY(-2px);
 }
 
 /* Icon Buttons */
