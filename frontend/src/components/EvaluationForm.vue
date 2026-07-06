@@ -588,7 +588,7 @@ const logout = () => {
 
 .page-header {
   width: 100%;
-  max-width: 800px;
+  max-width: 1100px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -617,7 +617,7 @@ const logout = () => {
   gap: 0.5rem;
   margin-bottom: 1.5rem;
   width: 100%;
-  max-width: 800px;
+  max-width: 1100px;
   flex-wrap: wrap;
 }
 
@@ -660,7 +660,7 @@ const logout = () => {
 
 .glass-panel {
   width: 100%;
-  max-width: 800px;
+  max-width: 1100px;
   background: var(--glass-bg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
