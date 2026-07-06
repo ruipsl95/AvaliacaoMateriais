@@ -195,7 +195,7 @@
               <td>{{ u.role }}</td>
               <td>{{ u.disciplinaryGroup?.name || '-' }}</td>
               <td>
-                <button @click="editName('users', u.id, u.name, fetchUsers)" class="btn-icon">✏️</button>
+                <button @click="openEditUser(u)" class="btn-icon">✏️</button>
                 <button @click="deleteEntity('users', u.id, fetchUsers)" class="btn-icon">✖</button>
               </td>
             </tr>
@@ -235,6 +235,38 @@
       </div>
 
     </div>
+
+    <!-- MODAL DE EDIÇÃO DE UTILIZADOR -->
+    <div v-if="editingUser" class="modal-overlay">
+      <div class="modal-content">
+        <h3>Editar Utilizador</h3>
+        <form @submit.prevent="submitEditUser">
+          <label>Nome:</label>
+          <input type="text" v-model="editingUser.name" required />
+          
+          <label>Role (Cargo):</label>
+          <select v-model="editingUser.role" required>
+            <option value="TEACHER">Professor (Avaliado)</option>
+            <option value="EVALUATOR">Delegado (Avaliador)</option>
+            <option value="ADMIN">Administrador</option>
+          </select>
+          
+          <label v-if="editingUser.role === 'EVALUATOR'">Grupo Disciplinar:</label>
+          <select v-model="editingUser.disciplinaryGroupId" v-if="editingUser.role === 'EVALUATOR'">
+            <option value="">Nenhum Grupo</option>
+            <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
+          </select>
+
+          <label>Nova Password (opcional):</label>
+          <input type="password" v-model="editingUser.password" placeholder="Deixe em branco para manter" />
+          
+          <div class="modal-actions">
+            <button type="button" @click="editingUser = null" class="btn-cancel">Cancelar</button>
+            <button type="submit" class="btn-save">Guardar Alterações</button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -269,6 +301,7 @@ const newSubject = ref({ name: '', year: null, courseId: '', disciplinaryGroupId
 const newCourse = ref({ name: '' });
 const newUser = ref({ name: '', username: '', password: '', role: 'EVALUATOR', disciplinaryGroupId: '' });
 const newTeacher = ref({ name: '', role: 'TEACHER' });
+const editingUser = ref(null);
 
 const getToken = () => localStorage.getItem('token');
 
@@ -388,6 +421,32 @@ const deleteEntity = async (endpoint, id, refreshCb) => {
     showMessage('Apagado com sucesso!');
     refreshCb();
     if (endpoint === 'subjects' || endpoint === 'courses') fetchKpis();
+  } catch (err) {
+    showMessage(err.message, true);
+  }
+};
+
+const openEditUser = (user) => {
+  editingUser.value = { ...user, password: '' };
+};
+
+const submitEditUser = async () => {
+  try {
+    const payload = {
+      name: editingUser.value.name,
+      role: editingUser.value.role,
+      disciplinaryGroupId: editingUser.value.role === 'EVALUATOR' ? (editingUser.value.disciplinaryGroupId || null) : null
+    };
+    if (editingUser.value.password) {
+      payload.password = editingUser.value.password;
+    }
+    await authFetch(`/api/admin/users/${editingUser.value.id}`, { 
+      method: 'PUT', 
+      body: JSON.stringify(payload) 
+    });
+    showMessage('Utilizador atualizado com sucesso!');
+    editingUser.value = null;
+    fetchUsers();
   } catch (err) {
     showMessage(err.message, true);
   }
@@ -602,4 +661,70 @@ th { background: #f1f5f9; font-weight: 600; }
 .btn-icon { background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 0.2rem; transition: transform 0.2s; }
 .btn-icon:hover { transform: scale(1.1); }
 .text-red { color: #ef4444; }
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+.modal-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  width: 400px;
+  box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+}
+.modal-content h3 {
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  color: #1e293b;
+}
+.modal-content label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: #475569;
+}
+.modal-content input, .modal-content select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+.btn-cancel {
+  background: #e2e8f0;
+  color: #475569;
+  border: none;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.btn-save {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.btn-save:hover {
+  background: #2563eb;
+}
 </style>
