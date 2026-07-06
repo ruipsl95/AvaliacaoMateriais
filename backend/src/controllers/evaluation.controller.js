@@ -22,8 +22,9 @@ function populatePdfContent(doc, evaluation) {
   doc.moveDown();
   
   // Metadados alinhados à esquerda com bold nas labels
+  const courseName = evaluation.subject.course ? evaluation.subject.course.name : 'N/A';
   doc.font('Helvetica-Bold').text('Turma: ', { continued: true })
-     .font('Helvetica').text(`${evaluation.subject.course.name}`);
+     .font('Helvetica').text(courseName);
      
   doc.font('Helvetica-Bold').text('Ano: ', { continued: true })
      .font('Helvetica').text(`${evaluation.subject.year || ''} `, { continued: true })
@@ -332,10 +333,10 @@ exports.exportEvaluationsZip = async (req, res) => {
         margins: { top: 110, bottom: 100, left: 50, right: 50 },
         bufferPages: true 
       });
+      const filename = `Avaliacao_${ev.subject.name.replace(/[^a-zA-Z0-9]/g, '_')}_${ev.id}.pdf`;
+      archive.append(doc, { name: filename });
       populatePdfContent(doc, ev);
       doc.end();
-      const filename = `Avaliacao_${ev.subject.name.replace(/\\/g, '_').replace(/ /g, '_')}_${ev.id}.pdf`;
-      archive.append(doc, { name: filename });
     }
 
     archive.finalize();
