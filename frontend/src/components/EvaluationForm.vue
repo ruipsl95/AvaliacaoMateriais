@@ -169,30 +169,36 @@
         </button>
       </header>
 
-      <div class="evaluations-grid" v-if="myEvaluations.length > 0">
-        <div class="eval-card" v-for="ev in myEvaluations" :key="ev.id">
-          <div class="eval-card-header">
-            <span class="eval-date">{{ new Date(ev.createdAt).toLocaleDateString('pt-PT') }}</span>
-            <span class="badge" v-if="ev.subject?.course?.name">{{ ev.subject?.course?.name }}</span>
-          </div>
-          
-          <div class="eval-card-body">
-            <h3 class="subject-title">{{ ev.subject?.name }}</h3>
-            <p class="teacher-name">
-              <span class="icon">👨‍🏫</span> {{ ev.teacher?.name }}
-            </p>
-          </div>
-          
-          <div class="eval-card-footer">
-            <button @click="downloadPdf(ev.id)" class="btn-action pdf-btn">
-              📄 Gerar PDF
-            </button>
-            <div class="action-icons">
-              <button @click="openEditModal(ev)" class="btn-icon" title="Editar Avaliação">✏️</button>
-              <button @click="deleteEvaluation(ev.id, ev.subjectId)" class="btn-icon text-red" title="Apagar Avaliação">🗑️</button>
-            </div>
-          </div>
-        </div>
+      <div class="table-container" v-if="myEvaluations.length > 0">
+        <table class="styled-table">
+          <thead>
+            <tr>
+              <th width="10%">Data</th>
+              <th width="30%">Disciplina</th>
+              <th width="15%">Turma</th>
+              <th width="20%">Professor(a)</th>
+              <th width="15%">Relatório</th>
+              <th width="10%">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="ev in myEvaluations" :key="ev.id">
+              <td class="col-date">{{ new Date(ev.createdAt).toLocaleDateString('pt-PT') }}</td>
+              <td class="col-subject"><strong>{{ ev.subject?.name }}</strong></td>
+              <td><span class="badge">{{ ev.subject?.course?.name || 'N/A' }}</span></td>
+              <td class="col-teacher">👨‍🏫 {{ ev.teacher?.name }}</td>
+              <td>
+                <button @click="downloadPdf(ev.id)" class="btn-action pdf-btn">
+                  📄 Gerar PDF
+                </button>
+              </td>
+              <td class="col-actions">
+                <button @click="openEditModal(ev)" class="btn-icon" title="Editar Avaliação">✏️</button>
+                <button @click="deleteEvaluation(ev.id, ev.subjectId)" class="btn-icon text-red" title="Apagar Avaliação">🗑️</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
       <div v-else class="empty-state">
         <div class="empty-icon">📁</div>
@@ -970,110 +976,111 @@ select:disabled {
   }
 }
 
-/* Evaluations Grid Layout */
-.evaluations-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 1.5rem;
+/* Highly Organized Table Styles */
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 12px;
+  background: white;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
   margin-top: 1.5rem;
+  border: 1px solid #e2e8f0;
 }
 
-.eval-card {
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 16px;
-  padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  backdrop-filter: blur(10px);
+.styled-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  min-width: 800px; /* garante scroll horizontal se o ecrã for pequeno */
 }
 
-.eval-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  background: rgba(255, 255, 255, 0.9);
-  border-color: var(--primary);
+.styled-table thead tr {
+  background-color: #1e293b;
+  color: #ffffff;
+  text-align: left;
 }
 
-.eval-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
+.styled-table th,
+.styled-table td {
+  padding: 1rem 1.2rem;
+  vertical-align: middle;
 }
 
-.eval-date {
-  font-size: 0.85rem;
+.styled-table th {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  border-bottom: 2px solid #0f172a;
+}
+
+.styled-table tbody tr {
+  border-bottom: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
+}
+
+.styled-table tbody tr:nth-of-type(even) {
+  background-color: #f8fafc;
+}
+
+.styled-table tbody tr:hover {
+  background-color: #f1f5f9;
+}
+
+.styled-table tbody tr:last-of-type {
+  border-bottom: none;
+}
+
+/* Specific Column Styles */
+.col-date {
   color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.col-subject strong {
+  color: var(--primary);
+  font-size: 1.05rem;
+}
+
+.col-teacher {
+  color: var(--text-main);
   font-weight: 500;
 }
 
-.badge {
-  background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
-  color: #3730a3;
-  padding: 0.3rem 0.8rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.eval-card-body {
-  flex: 1;
-  margin-bottom: 1.5rem;
-}
-
-.subject-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--text-main);
-  margin: 0 0 0.5rem 0;
-  line-height: 1.3;
-}
-
-.teacher-name {
-  font-size: 0.95rem;
-  color: var(--text-muted);
+.col-actions {
   display: flex;
-  align-items: center;
   gap: 0.5rem;
-  margin: 0;
+  align-items: center;
 }
 
-.eval-card-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: 1rem;
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
+/* Badges & Buttons */
+.badge {
+  display: inline-block;
+  background: #e0e7ff;
+  color: #3730a3;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .btn-action {
-  background: var(--primary);
-  color: white;
-  border: none;
-  padding: 0.6rem 1.2rem;
-  border-radius: 8px;
+  background: white;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   cursor: pointer;
   transition: all 0.2s ease;
-  display: inline-flex;
-  align-items: center;
+  white-space: nowrap;
 }
 
 .btn-action:hover {
-  background: var(--primary-hover);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-}
-
-.action-icons {
-  display: flex;
-  gap: 0.5rem;
+  background: var(--primary);
+  color: white;
 }
 
 .empty-state {
