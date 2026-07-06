@@ -34,8 +34,8 @@
               <label>Disciplina</label>
               <select v-model="form.subjectId" required>
                 <option value="" disabled>Selecione a disciplina...</option>
-                <option v-for="subject in allSubjects" :key="subject.id" :value="subject.id">
-                  {{ subject.name }}{{ subject.year ? ` (${subject.year}º Ano)` : '' }}
+                <option v-for="subject in availableSubjects" :key="subject.id" :value="subject.id">
+                  {{ subject.name }} ({{ getCourseAbbr(subject.course?.name) }}{{ subject.year || '' }})
                 </option>
               </select>
             </div>
@@ -216,7 +216,27 @@ const user = JSON.parse(localStorage.getItem('user') || '{}');
 
 const courses = ref([]);
 const allSubjects = ref([]);
+const evaluatedSubjectIds = ref([]);
 const teachers = ref([]);
+
+const courseAbbrs = {
+  'Informática de Gestão': 'INF',
+  'Vendas e Marketing': 'VM',
+  'Turismo': 'TUR',
+  'Mecânico de Aeronaves': 'MEC.AERO',
+  'Mecânica Automóvel': 'MEC.AUTO',
+  'Mecânica': 'MEC',
+  'Restaurante/Bar': 'REST/BAR',
+  'Cozinha/Pastelaria': 'COZ',
+  'Auxiliar de Saúde': 'AS',
+  'Desporto': 'DESP',
+  'Curso de Educação e Formação': 'CEF'
+};
+const getCourseAbbr = (courseName) => courseName ? (courseAbbrs[courseName] || courseName) : '';
+
+const availableSubjects = computed(() => {
+  return allSubjects.value.filter(s => !evaluatedSubjectIds.value.includes(s.id));
+});
 
 // Computed Property para Regra de Negócio Dinâmica
 const requiresJustification = computed(() => {
@@ -267,6 +287,7 @@ onMounted(async () => {
     const data = await response.json();
     courses.value = data.courses;
     allSubjects.value = data.subjects;
+    evaluatedSubjectIds.value = data.evaluatedSubjectIds || [];
   } catch (error) {
     console.error('Erro ao carregar dados:', error);
   }
@@ -294,6 +315,20 @@ const submitEvaluation = async () => {
     if (!response.ok) throw new Error('Erro ao submeter avaliação');
     
     const result = await response.json();
+    evaluatedSubjectIds.value.push(form.value.subjectId);
+    
+    // Limpar o form para uma nova submissão
+    form.value.subjectId = '';
+    form.value.teacherId = '';
+    form.value.modules = '';
+    form.value.scoreAdequacy = null;
+    form.value.scoreScientific = null;
+    form.value.scoreQuantity = null;
+    form.value.scoreBibliography = null;
+    form.value.justification = '';
+    form.value.copyrightStatus = '';
+    form.value.observations = '';
+
     downloadPdf(result.id);
     alert('Avaliação submetida com sucesso!');
     

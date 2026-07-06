@@ -27,7 +27,13 @@ exports.getMyData = async (req, res) => {
     });
     const courses = Array.from(courseMap.values());
 
-    res.status(200).json({ courses, subjects });
+    const myEvals = await prisma.evaluation.findMany({
+      where: { evaluatorId: req.userId },
+      select: { subjectId: true }
+    });
+    const evaluatedSubjectIds = myEvals.map(e => e.subjectId);
+
+    res.status(200).json({ courses, subjects, evaluatedSubjectIds });
   } catch (error) {
     console.error('Erro getMyData:', error);
     res.status(500).json({ error: error.message, stack: error.stack });
