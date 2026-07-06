@@ -158,51 +158,43 @@
 
     <!-- TAB: MINHAS AVALIAÇÕES -->
     <div class="glass-panel" v-if="tab === 'history'">
-      <header class="form-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap: wrap; gap: 1rem;">
-        <div style="text-align: left;">
+      <header class="form-header" style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
           <h1>Minhas Avaliações</h1>
           <p>Consulte, edite ou exporte o histórico das suas submissões.</p>
         </div>
-        <button @click="exportZip" class="btn-sm btn-primary export-btn">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.5rem;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          Exportar Todas (ZIP)
-        </button>
+        <button @click="exportZip" class="btn-sm btn-primary">📦 Exportar Todas (ZIP)</button>
       </header>
 
-      <div class="table-container" v-if="myEvaluations.length > 0">
-        <table class="styled-table">
+      <div class="table-container">
+        <table v-if="myEvaluations.length > 0">
           <thead>
             <tr>
-              <th width="10%">Data</th>
-              <th width="30%">Disciplina</th>
-              <th width="15%">Turma</th>
-              <th width="20%">Professor(a)</th>
-              <th width="15%">Relatório</th>
-              <th width="10%">Ações</th>
+              <th>Data</th>
+              <th>Disciplina</th>
+              <th>Turma</th>
+              <th>Professor(a)</th>
+              <th>Relatório</th>
+              <th>Ações</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="ev in myEvaluations" :key="ev.id">
-              <td class="col-date">{{ new Date(ev.createdAt).toLocaleDateString('pt-PT') }}</td>
-              <td class="col-subject"><strong>{{ ev.subject?.name }}</strong></td>
-              <td><span class="badge">{{ ev.subject?.course?.name || 'N/A' }}</span></td>
-              <td class="col-teacher">👨‍🏫 {{ ev.teacher?.name }}</td>
+              <td>{{ new Date(ev.createdAt).toLocaleDateString('pt-PT') }}</td>
+              <td>{{ ev.subject?.name }}</td>
+              <td>{{ ev.subject?.course?.name }}</td>
+              <td>{{ ev.teacher?.name }}</td>
               <td>
-                <button @click="downloadPdf(ev.id)" class="btn-action pdf-btn">
-                  📄 Gerar PDF
-                </button>
+                <button @click="downloadPdf(ev.id)" class="btn-sm">Gerar PDF</button>
               </td>
-              <td class="col-actions">
-                <button @click="openEditModal(ev)" class="btn-icon" title="Editar Avaliação">✏️</button>
-                <button @click="deleteEvaluation(ev.id, ev.subjectId)" class="btn-icon text-red" title="Apagar Avaliação">🗑️</button>
+              <td>
+                <button @click="openEditModal(ev)" class="btn-icon">✏️</button>
+                <button @click="deleteEvaluation(ev.id, ev.subjectId)" class="btn-icon text-red">🗑️</button>
               </td>
             </tr>
           </tbody>
         </table>
-      </div>
-      <div v-else class="empty-state">
-        <div class="empty-icon">📁</div>
-        <p>Ainda não realizou nenhuma avaliação.</p>
+        <p v-else class="empty-state">Ainda não realizou nenhuma avaliação.</p>
       </div>
     </div>
 
@@ -255,7 +247,7 @@
 
           <div class="modal-actions">
             <button type="button" @click="editingEvaluation = null" class="btn-cancel">Cancelar</button>
-            <button type="submit" class="btn-submit-modal" :disabled="isSubmittingEdit">Salvar e Atualizar PDF</button>
+            <button type="submit" class="btn-submit-modal" :disabled="isSubmittingEdit">Guardar e Atualizar PDF</button>
           </div>
         </form>
       </div>
@@ -976,168 +968,9 @@ select:disabled {
   }
 }
 
-/* Highly Organized Table Styles */
-.table-container {
-  width: 100%;
-  overflow-x: auto;
-  border-radius: 12px;
-  background: white;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
-  margin-top: 1.5rem;
-  border: 1px solid #e2e8f0;
-}
-
-.styled-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-  min-width: 800px; /* garante scroll horizontal se o ecrã for pequeno */
-}
-
-.styled-table thead tr {
-  background-color: #1e293b;
-  color: #ffffff;
-  text-align: left;
-}
-
-.styled-table th,
-.styled-table td {
-  padding: 1rem 1.2rem;
-  vertical-align: middle;
-}
-
-.styled-table th {
-  font-weight: 600;
-  text-transform: uppercase;
-  font-size: 0.8rem;
-  letter-spacing: 0.05em;
-  border-bottom: 2px solid #0f172a;
-}
-
-.styled-table tbody tr {
-  border-bottom: 1px solid #e2e8f0;
-  transition: all 0.2s ease;
-}
-
-.styled-table tbody tr:nth-of-type(even) {
-  background-color: #f8fafc;
-}
-
-.styled-table tbody tr:hover {
-  background-color: #f1f5f9;
-}
-
-.styled-table tbody tr:last-of-type {
-  border-bottom: none;
-}
-
-/* Specific Column Styles */
-.col-date {
-  color: var(--text-muted);
-  font-size: 0.9rem;
-}
-
-.col-subject strong {
-  color: var(--primary);
-  font-size: 1.05rem;
-}
-
-.col-teacher {
-  color: var(--text-main);
-  font-weight: 500;
-}
-
-.col-actions {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-/* Badges & Buttons */
-.badge {
-  display: inline-block;
-  background: #e0e7ff;
-  color: #3730a3;
-  padding: 0.35rem 0.75rem;
-  border-radius: 999px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.btn-action {
-  background: white;
-  color: var(--primary);
-  border: 1px solid var(--primary);
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  font-weight: 600;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.btn-action:hover {
-  background: var(--primary);
-  color: white;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 4rem 2rem;
-  background: rgba(255, 255, 255, 0.4);
-  border-radius: 16px;
-  border: 2px dashed rgba(0, 0, 0, 0.1);
-  margin-top: 1.5rem;
-}
-
-.empty-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-  opacity: 0.5;
-}
-
-.export-btn {
-  display: inline-flex;
-  align-items: center;
-  background: #1e293b;
-  color: white;
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  font-weight: 600;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
-}
-.export-btn:hover {
-  background: #0f172a;
-  transform: translateY(-2px);
-}
-
-/* Icon Buttons */
-.btn-icon {
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 50%;
-  width: 36px;
-  height: 36px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 1.1rem;
-  transition: var(--transition);
-  margin-right: 0.5rem;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-}
-.btn-icon:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-  border-color: var(--primary);
-}
-.text-red:hover {
-  border-color: var(--danger);
-  background: var(--danger-light);
-}
+.btn-icon { background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 0.2rem; transition: transform 0.2s; }
+.btn-icon:hover { transform: scale(1.1); }
+.text-red { color: #ef4444; }
 
 /* Modal Styles */
 .modal-overlay {
