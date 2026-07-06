@@ -17,16 +17,7 @@ async function transferAndDelete(oldName, newName) {
 }
 
 async function main() {
-  // Renomear Economia se existir com o nome antigo
-  const ecOld = await prisma.disciplinaryGroup.findFirst({ where: { name: 'Economia' }});
-  if (ecOld) {
-    await prisma.disciplinaryGroup.update({
-      where: { id: ecOld.id },
-      data: { name: 'Economia, OEAG, Área técnica de VM' }
-    });
-    console.log('Renamed Economia -> Economia, OEAG, Área técnica de VM');
-  }
-
+  await transferAndDelete('Economia', 'Economia, OEAG, Área técnica de VM');
   await transferAndDelete('LP / AISE / SI / TIC', 'Informática');
 }
 main().finally(() => prisma.$disconnect());
