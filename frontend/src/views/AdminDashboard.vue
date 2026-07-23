@@ -49,8 +49,11 @@
         <div v-if="activeKpi === 'negative'" class="kpi-details">
           <h3>Avaliações com nota ≤ 3</h3>
           <ul>
-            <li v-for="e in kpis.negativeEvaluations.items" :key="e.id">
-              <strong>{{ e.subject.name }}</strong> (Avaliador: {{ e.evaluator.name }}, Prof: {{ e.teacher.name }})
+            <li v-for="e in kpis.negativeEvaluations.items" :key="e.id" class="clickable-li" @click="viewEvaluationDetails(e)">
+              <strong>{{ e.subject.name }}</strong> {{ e.subject.year ? `(${e.subject.year}º Ano)` : '' }} - {{ e.subject.course?.name || 'Sem Turma' }} <br/>
+              <span style="font-size: 0.9em; color: #475569;">
+                Módulos: {{ e.modules }} | Prof: {{ e.teacher.name }} | Avaliador: {{ e.evaluator.name }}
+              </span>
             </li>
             <li v-if="kpis.negativeEvaluations.count === 0" class="text-gray">Nenhuma avaliação negativa!</li>
           </ul>
@@ -267,6 +270,39 @@
         </form>
       </div>
     </div>
+    <!-- MODAL DE DETALHES DA AVALIAÇÃO NEGATIVA -->
+    <div v-if="selectedEvaluation" class="modal-overlay" @click.self="selectedEvaluation = null">
+      <div class="modal-content" style="width: 600px; max-height: 90vh; overflow-y: auto;">
+        <h3>Detalhes da Avaliação</h3>
+        
+        <p style="margin-bottom: 0.5rem;"><strong>Disciplina:</strong> {{ selectedEvaluation.subject.name }}</p>
+        <p style="margin-bottom: 0.5rem;"><strong>Turma:</strong> {{ selectedEvaluation.subject.course?.name || '-' }} {{ selectedEvaluation.subject.year ? `(${selectedEvaluation.subject.year}º Ano)` : '' }}</p>
+        <p style="margin-bottom: 0.5rem;"><strong>Módulos:</strong> {{ selectedEvaluation.modules }}</p>
+        <p style="margin-bottom: 0.5rem;"><strong>Professor Avaliado:</strong> {{ selectedEvaluation.teacher.name }}</p>
+        <p style="margin-bottom: 0.5rem;"><strong>Avaliador:</strong> {{ selectedEvaluation.evaluator.name }}</p>
+        
+        <hr style="margin: 1rem 0; border: 0; border-top: 1px solid #e2e8f0;"/>
+        
+        <p style="margin-bottom: 0.5rem;"><strong>A) Adequação:</strong> {{ selectedEvaluation.scoreAdequacy }}</p>
+        <p style="margin-bottom: 0.5rem;"><strong>B) Qualidade Científica:</strong> {{ selectedEvaluation.scoreScientific }}</p>
+        <p style="margin-bottom: 0.5rem;"><strong>C) Quantidade:</strong> {{ selectedEvaluation.scoreQuantity }}</p>
+        <p style="margin-bottom: 0.5rem;"><strong>D) Bibliografia:</strong> {{ selectedEvaluation.scoreBibliography }}</p>
+        
+        <hr style="margin: 1rem 0; border: 0; border-top: 1px solid #e2e8f0;"/>
+        
+        <p style="margin-bottom: 0.5rem;"><strong>Justificação (notas ≤ 3):</strong><br/>
+           <span style="white-space: pre-wrap;">{{ selectedEvaluation.justification || 'Sem justificação' }}</span></p>
+           
+        <p style="margin-bottom: 0.5rem;"><strong>Observações:</strong><br/>
+           <span style="white-space: pre-wrap;">{{ selectedEvaluation.observations || 'Sem observações' }}</span></p>
+
+        <p style="margin-bottom: 0.5rem;"><strong>Direitos de Autor > 10%:</strong> {{ selectedEvaluation.copyrightStatus }}</p>
+
+        <div class="modal-actions">
+          <button @click="selectedEvaluation = null" class="btn-cancel">Fechar</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -277,6 +313,11 @@ import { useRouter } from 'vue-router';
 const router = useRouter();
 const tab = ref('dashboard');
 const activeKpi = ref(null);
+
+const selectedEvaluation = ref(null);
+const viewEvaluationDetails = (ev) => {
+  selectedEvaluation.value = ev;
+};
 
 const message = ref('');
 const error = ref('');
@@ -726,5 +767,16 @@ th { background: #f1f5f9; font-weight: 600; }
 }
 .btn-save:hover {
   background: #2563eb;
+}
+.clickable-li {
+  padding: 0.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+  border: 1px solid transparent;
+}
+.clickable-li:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
 }
 </style>

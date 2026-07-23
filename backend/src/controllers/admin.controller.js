@@ -249,7 +249,7 @@ exports.getKpis = async (req, res) => {
           { scoreBibliography: { lte: 3 } }
         ]
       },
-      include: { teacher: true, evaluator: true, subject: true }
+      include: { teacher: true, evaluator: true, subject: { include: { course: true } } }
     });
 
     res.status(200).json({
